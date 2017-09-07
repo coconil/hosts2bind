@@ -1,7 +1,8 @@
-#!/usr/bin/python3
-import copy
+#! /usr/bin/python3
 
 
+import requests
+import os
 class Record:
     def __init__(self, name, address):
         self.name = name
@@ -37,15 +38,18 @@ def getZoneFromName(list, name):
             return zone
     return None
 
-
-file = open('hosts')
+r = requests.get('https://raw.githubusercontent.com/racaljk/hosts/master/hosts')
+file=open("hosts", 'w+')
+file.write(r.text.replace('\t', ' '))
+file.seek(0)
 zoneList = []
 
 while True:
     line = file.readline()
-
     if not line:
         break
+    if line.find('#') == 0:
+        continue
     index = line.find(' ')
     if index < 0:
         continue
@@ -65,16 +69,25 @@ while True:
         tempZone = Zone(tempZoneName)
         tempZone.insertRecord(Record(name[:name.find(tempZoneName) - 1], address))
         zoneList.append(tempZone)
-zonefile = open('myzone.conf', 'w+')
+file.close()
+outputDirName='bind'
+if os.path.exists("output"):
+    if not os.path.isdir(outputDirName):
+        print('error,there is a regular file named output')
+        raise Exception("File Exit")
+else:
+    os.mkdir(outputDirName)
+
+zoneFile = open(outputDirName+'/myzone.conf', 'w+')
 for zone in zoneList:
 
     print('\n' + zone.name + ': ')
-    zonefile.write(' zone '+'"'+zone.name+'" '+'''{
+    zoneFile.write(' zone '+'"'+zone.name+'" '+'''{
 type master;
 file "/etc/bind/db.'''+zone.name+'''";
 };
 ''')
-    outfile = open('db.' + zone.name, 'w+')
+    outfile = open(outputDirName+'/db.' + zone.name, 'w+')
     outfile.write('''
 $TTL 7200
 ; domain.tld
@@ -90,5 +103,5 @@ $TTL 7200
         outfile.write(record.name + '     IN      A       ' + record.address + '\n')
         print(record.name, record.address)
     outfile.close()
-zonefile.close()
+zoneFile.close()
     # print('address:', address, ' name:', name)
